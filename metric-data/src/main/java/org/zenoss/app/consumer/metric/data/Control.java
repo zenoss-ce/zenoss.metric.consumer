@@ -29,22 +29,13 @@ public final class Control {
         return new Control(Type.MALFORMED_REQUEST, reason);
     }
 
-    public static Control lowCollision() {
-        return new Control(Type.LOW_COLLISION);
-    }
-
-    public static Control highCollision() {
-        return new Control(Type.HIGH_COLLISION);
-    }
-    
     public static Control dataReceived() {
         return new Control(Type.DATA_RECEIVED);
     }
 
-    public static Control clientCollision(String clientId) {
-        return new Control(Type.CLIENT_COLLISION, clientId);
+    public static Control bufferUpdate(long bufferSize) {
+        return new Control(Type.BUFFER_UPDATE, Long.toString(bufferSize, 10));
     }
-
 
     public enum Type {
         /** Successful processing */
@@ -53,23 +44,17 @@ public final class Control {
         /** Internal service error, try another consumer */
         ERROR,
 
-        /** Metrics were dropped, most likely because of high collision */
+        /** Metrics were dropped, most likely because of collision */
         DROPPED,
 
         /** Request-body is malformed */
         MALFORMED_REQUEST,
 
-        /** Metric processing breached the low water mark, however, all metrics were processed */
-        LOW_COLLISION,
-
-        /** Metric processing breached the high water mark, and, no metrics were processed */
-        HIGH_COLLISION,
-
         /** Some data has been received and processing should start */
         DATA_RECEIVED,
 
         /** Metric processing breached the max backlog per client mark, however, metrics may still be processed */
-        CLIENT_COLLISION,
+        BUFFER_UPDATE,
     }
 
     public Control() {

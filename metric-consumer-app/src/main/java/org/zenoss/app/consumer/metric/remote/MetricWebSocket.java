@@ -10,19 +10,16 @@
  */
 package org.zenoss.app.consumer.metric.remote;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.google.common.base.Supplier;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
-import com.google.common.eventbus.EventBus;
-import com.google.common.eventbus.Subscribe;
 import org.apache.shiro.subject.Subject;
 import org.eclipse.jetty.websocket.WebSocket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
+import org.zenoss.app.consumer.metric.BufferListener;
 import org.zenoss.app.consumer.metric.data.BinaryDecoder;
 import org.zenoss.app.security.ZenossTenant;
 import org.zenoss.app.consumer.ConsumerAppConfiguration;
@@ -36,7 +33,6 @@ import org.zenoss.dropwizardspring.websockets.annotations.OnClose;
 import org.zenoss.dropwizardspring.websockets.annotations.OnMessage;
 import org.zenoss.dropwizardspring.websockets.annotations.WebSocketListener;
 
-import javax.annotation.PostConstruct;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.Path;
 import java.io.IOException;
@@ -66,23 +62,9 @@ public class MetricWebSocket {
             }));
 
     @Autowired
-    public MetricWebSocket(
-            ConsumerAppConfiguration configuration,
-            MetricService service,
-            @Qualifier("zapp::event-bus::async") EventBus eventBus) {
+    public MetricWebSocket(ConsumerAppConfiguration configuration, MetricService service) {
         this.service = service;
-        this.eventBus = eventBus;
         this.configuration = configuration;
-        this.minTimeBetweenBroadcast = configuration.getMetricServiceConfiguration().getMinTimeBetweenBroadcast();
-        this.minTimeBetweenNotification = configuration.getMetricServiceConfiguration().getMinTimeBetweenNotification();
-        this.lastHighCollisionBroadcast = new AtomicLong();
-        this.lastLowCollisionBroadcast = new AtomicLong();
-        this.lastClientCollisionSent = new AtomicLong();
-    }
-
-    @PostConstruct
-    public void registerSelf() {
-        eventBus.register(this);
     }
 
     @OnClose
@@ -145,7 +127,7 @@ public class MetricWebSocket {
 
                 //enqueue metrics for transfer
                 final String clientId = getClientId(session);
-                Control control = service.push(metricList, clientId, onCollision(clientId, session));
+                Control control = service.push(metricList, clientId, bufferListener(session));
                 log.debug("Message(control={}, len(metrics)={}) -> {}", message.getControl(), metricsLength, control);
                 return control;
             } else {
@@ -157,123 +139,24 @@ public class MetricWebSocket {
         }
     }
 
-    @Subscribe
-    public void handle(Control event) {
-        log.debug("Handle control event: {}", event);
-
-        //broadcast low and high collisions      
-        switch (event.getType()) {
-            case LOW_COLLISION:
-                lowCollisionBroadcast();
-                break;
-
-            case HIGH_COLLISION:
-                highCollisionBroadcast();
-                break;
-
-            default:
-        }
-    }
-
-    Runnable onCollision(final String clientId, final WebSocketSession session) {
-        return new Runnable(){
+    private BufferListener bufferListener(final WebSocketSession session) {
+        return new BufferListener(){
             @Override
-            public void run() {
-                clientCollisionNotification(Control.clientCollision(clientId), session);
+            public void onBufferUpdate(String clientId, long remainingBuffer) {
+                clientBufferNotification(Control.bufferUpdate(remainingBuffer), session);
             }
         };
     }
 
-    void clientCollisionNotification(Control event, WebSocketSession session) {
-        // We send at most every X milliseconds. Check the LOW time.
-        long now = System.currentTimeMillis();
-        long lastCheckTimeExpected = lastClientCollisionSent.get();
-        if (now > lastCheckTimeExpected + minTimeBetweenNotification &&
-                lastClientCollisionSent.compareAndSet(lastCheckTimeExpected, now)) {
-            try {
-                String message = WebSocketBroadcast.newMessage(getClass(), event).asString();
-                session.sendMessage(message);
-                service.incrementSentClientCollision();
-            } catch (IOException e) {
-                log.warn("Failed to send collision notification to client: {}", e.getMessage());
-            }
-        }
-    }
-    static final WebSocketBroadcast.Message LOW_COLLISION_MESSAGE;
-    static final WebSocketBroadcast.Message HIGH_COLLISION_MESSAGE;
-    static {
-        WebSocketBroadcast.Message msg = null;
+    void clientBufferNotification(Control event, WebSocketSession session) {
         try {
-            msg = WebSocketBroadcast.newMessage(MetricWebSocket.class, Control.lowCollision());
-        } catch (JsonProcessingException e) {
-            log.error("Unable to convert control message", e);
-        }
-        LOW_COLLISION_MESSAGE = msg;
-        try {
-            msg = WebSocketBroadcast.newMessage(MetricWebSocket.class, Control.highCollision());
-        } catch (JsonProcessingException e) {
-            log.error("Unable to convert control message", e);
-        }
-        HIGH_COLLISION_MESSAGE = msg;
-
-    }
-    void lowCollisionBroadcast() {
-        // We broadcast at most every X milliseconds. Check the LOW time.
-        long now = System.currentTimeMillis();
-        long lastCheckTimeExpected = lastLowCollisionBroadcast.get();
-        if (now > lastCheckTimeExpected + minTimeBetweenBroadcast &&
-                lastLowCollisionBroadcast.compareAndSet(lastCheckTimeExpected, now)) {
-            if (LOW_COLLISION_MESSAGE == null) {
-                log.error("Unable to send low collision broadcast due to exception during initialization");
-            } else {
-                eventBus.post(LOW_COLLISION_MESSAGE);
-                service.incrementBroadcastLowCollision();
-                log.info("Sent low collision broadcast");
-            }
-        }
-    }
-
-    void highCollisionBroadcast() {
-        // We broadcast at most every X milliseconds. Check the HIGH time.
-        long now = System.currentTimeMillis();
-        long lastCheckTimeExpected = lastHighCollisionBroadcast.get();
-        if (now > lastCheckTimeExpected + minTimeBetweenBroadcast &&
-                lastHighCollisionBroadcast.compareAndSet(lastCheckTimeExpected, now)) {
-            if (HIGH_COLLISION_MESSAGE == null) {
-                log.error("Unable to send high collision broadcast due to exception during initialization");
-            } else {
-                eventBus.post(HIGH_COLLISION_MESSAGE);
-                log.warn("Sent high collision broadcast");
-                service.incrementBroadcastHighCollision();
-            }
+            String message = WebSocketBroadcast.newMessage(getClass(), event).asString();
+            session.sendMessage(message);
+            log.debug("Buffer update sent: {}", message);
+        } catch (IOException e) {
+            log.warn("Failed to send buffer update to client: {}", e.getMessage());
         }
     }
 
     private final MetricService service;
-    private final EventBus eventBus;
-
-    /**
-     * How frequently should we broadcast collision messages?
-     */
-    private final int minTimeBetweenBroadcast;
-
-    /**
-     * How frequently should we send client-specific collision messages?
-     */
-    private final int minTimeBetweenNotification;
-
-    /**
-     * Last timestamp when we broadcast a low collision message
-     */
-    private final AtomicLong lastLowCollisionBroadcast;
-
-    /**
-     * Last timestamp when we broadcast a high collision message
-     */
-    private final AtomicLong lastHighCollisionBroadcast;
-
-    /**
-     * Last timestamp when we sent a client-collision message
-     */
-    private final AtomicLong lastClientCollisionSent;
 }

@@ -17,6 +17,7 @@ import org.apache.shiro.subject.Subject;
 import org.junit.Before;
 import org.junit.Test;
 import org.zenoss.app.consumer.ConsumerAppConfiguration;
+import org.zenoss.app.consumer.metric.BufferListener;
 import org.zenoss.app.consumer.metric.MetricService;
 import org.zenoss.app.consumer.metric.data.Control;
 import org.zenoss.app.consumer.metric.data.Metric;
@@ -25,7 +26,6 @@ import org.zenoss.app.security.ZenossTenant;
 import org.zenoss.app.zauthbundle.ZappSecurity;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -48,7 +48,7 @@ public class MetricWebResourceTest {
     public void setUp() throws Exception {
         List<String> parameters = Lists.newArrayList();
         configuration.setHttpParameterTags(parameters);
-        when(service.push(anyListOf(Metric.class), anyString(), any(Runnable.class))).thenReturn(control);
+        when(service.push(anyListOf(Metric.class), anyString(), any(BufferListener.class))).thenReturn(control);
 
         request = mock(HttpServletRequest.class);
         subject = mock(Subject.class);

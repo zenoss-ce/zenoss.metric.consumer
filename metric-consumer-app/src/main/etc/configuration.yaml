@@ -20,28 +20,28 @@ webSocketConfiguration:
 
 metricService:
     jobSize: 1000
-    highCollisionMark: 2000000
-    lowCollisionMark: 1000000
-    perClientMaxBacklogSize: -1
-    perClientMaxPercentOfFairBacklogSize: 100
+    maxQueueSize: 2000000
+    maxTimeBetweenRetries: 3000
     maxClientWaitTime: 60000
-    minTimeBetweenBroadcast: 100
-    minTimeBetweenNotification: 100
     tsdbWriterThreads: 1
     maxIdleTime: 10000
     maxConnectionBackOff: 5000
     minConnectionBackOff: 100
+    bufferUpdateInterval: 100
     openTsdbClientPool:
       maxKeepAliveTime: 300000
       minTestTime:       60000
       clientBufferSize:  65536
       clients:
         - {host: localhost, port: 4242}
+        - {host: localhost, port: 4242}
+        - {host: localhost, port: 4242}
+        - {host: localhost, port: 4242}
 
       clientFactory:
         keepAlive:          true
         connectTimeout:     1000
-        soTimeout:          1000
+        soTimeout:          60000
 
 managedReporter:
     metricReporters:

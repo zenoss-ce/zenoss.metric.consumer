@@ -52,44 +52,57 @@ public class OpenTsdbWriterManagerTest {
     }
     
     @Test
-    public void testStartAllWritersLow() {
+    public void testStartAllWritersError() {
         config.setTsdbWriterThreads(3);
         TsdbWriter writer = mock(TsdbWriter.class);
         when (registry.size()).thenReturn (0);
         when (context.getBean(TsdbWriter.class)).thenReturn (writer);
         
         OpenTsdbWriterManager service = createService();
-        service.processControl(Control.lowCollision());
+        service.processControl(Control.error("test"));
         
         verify (executorService, times(3)).submit(writer);
     }
     
     @Test
-    public void testStartAllWritersHigh() {
+    public void testStartAllWritersDropped() {
         config.setTsdbWriterThreads(3);
         TsdbWriter writer = mock(TsdbWriter.class);
         when (registry.size()).thenReturn (0);
         when (context.getBean(TsdbWriter.class)).thenReturn (writer);
         
         OpenTsdbWriterManager service = createService();
-        service.processControl(Control.highCollision());
+        service.processControl(Control.dropped("test"));
         
         verify (executorService, times(3)).submit(writer);
     }
-    
+
     @Test
-    public void testStartSomeWritersLow() {
+    public void testStartSomeWritersError() {
         config.setTsdbWriterThreads(3);
         TsdbWriter writer = mock(TsdbWriter.class);
         when (registry.size()).thenReturn (1);
         when (context.getBean(TsdbWriter.class)).thenReturn (writer);
-        
+
         OpenTsdbWriterManager service = createService();
-        service.processControl(Control.lowCollision());
-        
+        service.processControl(Control.error("test"));
+
         verify (executorService, times(2)).submit(writer);
     }
-    
+
+    @Test
+    public void testStartSomeWritersDropped() {
+        config.setTsdbWriterThreads(3);
+        TsdbWriter writer = mock(TsdbWriter.class);
+        when (registry.size()).thenReturn (1);
+        when (context.getBean(TsdbWriter.class)).thenReturn (writer);
+
+        OpenTsdbWriterManager service = createService();
+        service.processControl(Control.dropped("test"));
+
+        verify (executorService, times(2)).submit(writer);
+    }
+
     @Test
     public void testStartSomeWritersData() {
         config.setTsdbWriterThreads(3);
@@ -103,19 +116,7 @@ public class OpenTsdbWriterManagerTest {
         verify (executorService, times(2)).submit(writer);
     }
     
-    @Test
-    public void testStartSomeWritersHigh() {
-        config.setTsdbWriterThreads(3);
-        TsdbWriter writer = mock(TsdbWriter.class);
-        when (registry.size()).thenReturn (1);
-        when (context.getBean(TsdbWriter.class)).thenReturn (writer);
-        
-        OpenTsdbWriterManager service = createService();
-        service.processControl(Control.highCollision());
-        
-        verify (executorService, times(2)).submit(writer);
-    }
-    
+
     @Test
     public void testRunTwiceFast() {
         config.setTsdbWriterThreads(3);
@@ -124,63 +125,56 @@ public class OpenTsdbWriterManagerTest {
         when (context.getBean(TsdbWriter.class)).thenReturn (writer);
         
         OpenTsdbWriterManager service = createService();
-        service.processControl(Control.lowCollision());
-        service.processControl(Control.lowCollision());
+        service.processControl(Control.dataReceived());
+        service.processControl(Control.dataReceived());
         
         verify (executorService, times(2)).submit(writer);
     }
     
     @Test
-    public void testRunTwiceFastLowHigh() {
+    public void testRunTwiceFastDroppedError() {
         config.setTsdbWriterThreads(3);
         TsdbWriter writer = mock(TsdbWriter.class);
         when (registry.size()).thenReturn (1);
         when (context.getBean(TsdbWriter.class)).thenReturn (writer);
         
         OpenTsdbWriterManager service = createService();
-        service.processControl(Control.lowCollision());
-        service.processControl(Control.highCollision());
+        service.processControl(Control.dropped("test"));
+        service.processControl(Control.error("test"));
         
         verify (executorService, times(2)).submit(writer);
     }
     
     @Test
-    public void testStartNoWritersLow() {
+    public void testStartNoWritersError() {
         config.setTsdbWriterThreads(3);
         TsdbWriter writer = mock(TsdbWriter.class);
         when (registry.size()).thenReturn (3);
         when (context.getBean(TsdbWriter.class)).thenReturn (writer);
         
         OpenTsdbWriterManager service = createService();
-        service.processControl(Control.lowCollision());
+        service.processControl(Control.error("test"));
         
         verify (executorService, never()).submit(writer);
     }
     
     @Test
-    public void testStartNoWritersHigh() {
+    public void testStartNoWritersDropped() {
         config.setTsdbWriterThreads(3);
         TsdbWriter writer = mock(TsdbWriter.class);
         when (registry.size()).thenReturn (3);
         when (context.getBean(TsdbWriter.class)).thenReturn (writer);
         
         OpenTsdbWriterManager service = createService();
-        service.processControl(Control.highCollision());
+        service.processControl(Control.dropped("test"));
         
         verify (executorService, never()).submit(writer);
     }
     
     @Test
-    public void testHandleDropped() {
+    public void testHandleBufferUpdate() {
         OpenTsdbWriterManager service = createService();
-        service.processControl(Control.dropped(null));
-        nothingHappens();
-    }
-    
-    @Test
-    public void testHandleError() {
-        OpenTsdbWriterManager service = createService();
-        service.processControl(Control.error(null));
+        service.processControl(Control.bufferUpdate(1));
         nothingHappens();
     }
     

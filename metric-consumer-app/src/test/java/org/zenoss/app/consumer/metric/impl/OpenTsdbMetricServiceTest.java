@@ -71,33 +71,14 @@ public class OpenTsdbMetricServiceTest {
     }
 
     @Test
-    public void testPushCollidesLow() throws Exception {
-        Metric metric = new Metric("name", 0, 0.0);
-        ArrayList<Metric> metrics = Lists.newArrayList(metric, metric);
-        config.setLowCollisionMark(1);
-        
-        when(metricsQueue.getTotalInFlight()).thenReturn(2L);
-        
-        OpenTsdbMetricService service = newService();
-        assertEquals(Control.ok(), service.push(metrics,"test", null));
-        
-        verify(metricsQueue, times(1)).addAll(metrics, "test");
-        verify(eventBus, times(1)).post(Control.lowCollision());
-    }
-
-    @Test
-    public void testPushCollidesHigh() throws Exception {
+    public void testPushCollision() throws Exception {
         Metric metric = new Metric("name", 0, 0.0);
         List<Metric> metricList = Lists.newArrayList(metric, metric);
-        config.setHighCollisionMark(3);
-        config.setLowCollisionMark(1);
+        config.setMaxQueueSize(3);
         config.setMaxClientWaitTime(1);
         when(metricsQueue.getTotalInFlight()).thenReturn(3L);
-        
         OpenTsdbMetricService service = newService();
         assertEquals(Control.dropped("consumer is overwhelmed"), service.push(metricList,"test", null));
-        
         verify(metricsQueue, never()).addAll(metricList, "test");
-        verify(eventBus, atLeastOnce()).post(Control.highCollision());
     }
 }

@@ -32,7 +32,7 @@ public interface TsdbMetricsQueue {
      * @param clientId A value that might be used to tag the client on a metric. {@see #CLIENT_TAG}
      * @return zero, or a positive number if the queue contains any metrics with a matching tag.
      */
-     long clientBacklogSize(String clientId);
+    long clientBacklogSize(String clientId);
 
     /**
      * Count how many unique clients have we seen recently and/or currently have metrics in the queue?
@@ -95,32 +95,7 @@ public interface TsdbMetricsQueue {
     void incrementRejected(long rejected);
 
     /**
-     * Record a high collision event.
-     */
-    void incrementHighCollision();
-
-    /**
-     * Record a low collision event.
-     */
-    void incrementLowCollision();
-
-    /**
      * Record a client collision event.
      */
     void incrementClientCollision();
-
-    /**
-     *  Record a client collision notification was sent via websocket.
-     */
-    void incrementSentClientCollision();
-
-    /**
-     * Record a low collision event was broadcast via websocket.
-     */
-    void incrementBroadcastLowCollision();
-
-    /**
-     * Recored a high collision event was broadcast via websocket.
-     */
-    void incrementBroadcastHighCollision();
 }

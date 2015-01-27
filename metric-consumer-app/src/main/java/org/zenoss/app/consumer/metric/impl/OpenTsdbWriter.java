@@ -116,7 +116,7 @@ class OpenTsdbWriter implements TsdbWriter {
                 continue;
             }
 
-            // We have some work to do, some process what we got from the metrics queue
+            // We have some work to do, so process what we got from the metrics queue
             if (backoffTracker == null) {
                 backoffTracker = createExponentialBackOff();
             }
@@ -169,10 +169,10 @@ class OpenTsdbWriter implements TsdbWriter {
                     metricsQueue.incrementError(errs);
                 }
 
-                if ( clientPool.hasCollision()) {
+                if (clientPool.hasCollision()) {
                     // Note: calling .hasCollision() also had the side-effect of clearing it.
                     invalidateClient = true;
-                    eventBus.post(Control.highCollision());
+                    eventBus.post(Control.error("collision detected"));
                     throw new NoSuchElementException("Collision detected");
                 }
 

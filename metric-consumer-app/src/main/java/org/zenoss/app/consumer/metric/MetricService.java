@@ -24,29 +24,14 @@ public interface MetricService {
      *
      * @param metrics metrics to be written to TSDB.
      * @param clientId identifies which client the metrics came from
-     * @param onCollision callback in case of collision(s).
+     * @param bufferListener callback to relay information about the available buffer size.
      * @return control message with result
      */
-    Control push(List<Metric> metrics, String clientId, Runnable onCollision);
+    Control push(List<Metric> metrics, String clientId, BufferListener bufferListener);
 
     /**
      * Record a number of metrics were received (but not necessarily accepted/pushed).
      * @param received number of received metrics.
      */
     void incrementReceived(long received);
-
-    /**
-     *  Record a client collision notification was sent via websocket.
-     */
-    void incrementSentClientCollision();
-
-    /**
-     * Record a low collision event was broadcast via websocket.
-     */
-    void incrementBroadcastLowCollision();
-
-    /**
-     * Recored a high collision event was broadcast via websocket.
-     */
-    void incrementBroadcastHighCollision();
 }

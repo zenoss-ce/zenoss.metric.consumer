@@ -64,8 +64,8 @@ class OpenTsdbWriterManager {
     public void processControl(Control event) {
         log.debug("Received event {}", event.getType());
         switch (event.getType()) {
-            case LOW_COLLISION:
-            case HIGH_COLLISION:
+            case ERROR:
+            case DROPPED:
             case DATA_RECEIVED:
                 long now = System.currentTimeMillis();
                 long lastCheckTimeExpected = lastCheckTime.get();
