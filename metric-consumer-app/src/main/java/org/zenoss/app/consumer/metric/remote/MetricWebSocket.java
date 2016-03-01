@@ -69,11 +69,12 @@ public class MetricWebSocket {
 
     @OnClose
     public void onClose(Integer closeCode, String message, WebSocketSession session) {
+        log.info("onClose( closeCode={}, message={})", closeCode, message);
         decoders.remove(session.getConnection());
     }
 
     @OnMessage
-    public Control onMessage(byte[] data, WebSocketSession session) {
+    public Control onMessage(byte[] data, WebSocketSession session) throws Exception {
         try {
             BinaryDecoder decoder = decoders.get(session.getConnection());
             if (decoder == null) {
@@ -87,8 +88,13 @@ public class MetricWebSocket {
                 return Control.malformedRequest("Invalid message");
             }
         } catch (RuntimeException e) {
+            log.info("onMessage(data={}, session={}", data, session);
             log.error("Unexpected exception: " + e.getMessage(), e);
             return Control.error(e.getMessage());
+        } catch (Exception e) {
+            log.info("onMessage(data={}, session={}", data, session);
+            log.error("Unexpected exception: " + e.getMessage(), e);
+            throw(e);
         }
     }
 
@@ -122,8 +128,8 @@ public class MetricWebSocket {
                     Utils.injectTag("zenoss_tenant_id", tenant.id(), metricList);
                 }
 
-                //filter tags using configuration white list
-                Utils.filterMetricTags( metricList, configuration.getTagWhiteList());
+                //filter tags using configuration white lists
+                Utils.filterMetricTags( metricList, configuration.getTagWhiteList(), configuration.getTagWhiteListPrefixes());
 
                 //enqueue metrics for transfer
                 final String clientId = getClientId(session);
@@ -133,7 +139,8 @@ public class MetricWebSocket {
             } else {
                 return Control.malformedRequest("Null metrics not accepted");
             }
-        } catch (RuntimeException e) {
+        } catch (Exception e) {
+            log.info("onMessage(message={}, session={}", message, session);
             log.error("Unexpected exception: " + e.getMessage(), e);
             return Control.error(e.getMessage());
         }
@@ -141,6 +148,7 @@ public class MetricWebSocket {
 
     private BufferListener bufferListener(final WebSocketSession session) {
         return new BufferListener(){
+
             @Override
             public void onBufferUpdate(String clientId, long remainingBuffer) {
                 clientBufferNotification(Control.bufferUpdate(remainingBuffer), session);
