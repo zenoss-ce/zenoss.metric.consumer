@@ -17,8 +17,10 @@ import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.eventbus.EventBus;
 import com.google.common.eventbus.Subscribe;
+import org.apache.shiro.session.InvalidSessionException;
 import org.apache.shiro.subject.Subject;
 import org.eclipse.jetty.websocket.WebSocket;
+import org.eclipse.jetty.websocket.WebSocket.Connection;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -162,6 +164,14 @@ public class MetricWebSocket {
             } else {
                 return Control.malformedRequest("Null metrics not accepted");
             }
+        } catch (InvalidSessionException ex) {
+            log.warn("HTTP session has expired");
+            WebSocket.Connection connection = session.getConnection();
+            if (connection != null) {
+                connection.close();
+            }
+            return Control.error(ex.getMessage());
+
         } catch (Exception e) {
             log.info("onMessage(message={}, session={}", message, session);
             log.error("Unexpected exception: " + e.getMessage(), e);
